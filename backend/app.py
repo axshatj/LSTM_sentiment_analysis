@@ -1,5 +1,4 @@
-# backend/app.py
-
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
@@ -12,7 +11,7 @@ from functools import lru_cache
 
 app = Flask(__name__)
 CORS(app)
-# cache = Cache(app, config={'CACHE_TYPE': 'simple'})
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 # Load model and tokenizer
 with open('model.pkl', 'rb') as file:
@@ -21,7 +20,7 @@ with open('model.pkl', 'rb') as file:
 with open('tokenizer.pkl', 'rb') as file:
     tokenizer = pickle.load(file)
 
-# @lru_cache(maxsize=1000)
+@lru_cache(maxsize=1000)
 def preprocess_text(text):
     TAG_RE = re.compile(r'<[^>]+>')
     stop_words = set(stopwords.words('english'))
@@ -36,7 +35,7 @@ def preprocess_text(text):
     return text
 
 @app.route('/predict', methods=['POST'])
-# @cache.cached(timeout=300, query_string=True)
+@cache.cached(timeout=300, query_string=True)
 def predict():
     data = request.json
     review = data.get('review', '')
@@ -49,7 +48,6 @@ def predict():
     padded = pad_sequences(sequences, maxlen=100, padding='post', truncating='post')
 
     prediction = model.predict(padded)
-    # print("Predictions -----> ", prediction)
     sentiment = "Positive" if prediction[0] >= 0.5 else "Negative"
     confidence = float(prediction[0]) if sentiment == "Positive" else float(1 - prediction[0])
     confidence = round(confidence * 100, 2)
@@ -57,4 +55,5 @@ def predict():
     return jsonify({"sentiment": sentiment, "confidence": confidence})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
